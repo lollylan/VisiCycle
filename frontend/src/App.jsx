@@ -224,9 +224,12 @@ function App() {
   return (
     <div className="container">
       <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ color: '#0369a1' }}>VisiCycle</h1>
-          <p style={{ color: 'var(--color-text-muted)' }}>Intelligente Hausbesuchs-Planung</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <img src="/logo.png" alt="VisiCycle Logo" style={{ height: '60px' }} />
+          <div>
+            <h1 style={{ color: 'var(--color-primary)', lineHeight: 1, marginBottom: '0.25rem' }}>VisiCycle</h1>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>Intelligente Hausbesuchs-Planung</p>
+          </div>
         </div>
         <nav style={{ display: 'flex', gap: '1rem' }}>
           <button
@@ -273,7 +276,7 @@ function App() {
             {/* Time Summary Bar */}
             <div className="card" style={{ padding: '1rem', marginBottom: '2rem', backgroundColor: isOverTime ? '#fee2e2' : '#f0f9ff', borderColor: isOverTime ? '#fca5a5' : '#bae6fd' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '600' }}>
-                <span style={{ color: isOverTime ? '#991b1b' : '#0369a1' }}>
+                <span style={{ color: isOverTime ? '#991b1b' : 'var(--color-primary)' }}>
                   Gesamtdauer: ~{Math.floor(totalTime / 60)}h {totalTime % 60}m
                 </span>
                 <span>
@@ -541,7 +544,7 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
         {/* Info Line */}
         <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', gap: '1rem' }}>
           <span>⏱️ {patient.visit_duration_minutes} min Behandlungsdauer</span>
-          {isManuallyPlanned && <span style={{ color: '#d97706' }}>⚠️ Manuell eingeplant</span>}
+          {isManuallyPlanned && <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}>⚠️ Manuell eingeplant</span>}
         </div>
       </div>
     );

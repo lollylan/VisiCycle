@@ -1,11 +1,12 @@
 :root {
-  --color-primary: #14b8a6; /* Teal 500 */
-  --color-primary-dark: #0f766e; /* Teal 700 */
+  --color-primary: #33656E; /* Logo Teal */
+  --color-primary-dark: #264D54; /* Darker Teal */
+  --color-accent: #E17554; /* Logo Orange */
   --color-bg: #f8fafc; /* Slate 50 */
   --color-surface: #ffffff;
   --color-text: #0f172a; /* Slate 900 */
   --color-text-muted: #64748b; /* Slate 500 */
-  --color-border: #e2e8f0; /* Slate 200 */
+  --color-border: #cbd5e1; /* Slate 300 */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --radius: 0.75rem;

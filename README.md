@@ -11,6 +11,11 @@
 *   **Offline-First:** Verwendung lokaler Kartendaten (Leaflet) und keine Abhängigkeit von externen Tracking-Diensten.
 *   **Modernes Design:** Übersichtliches Dashboard, sortierte Listen und interaktive Karte.
 
+## 📸 Screenshots
+
+![VisiCycle Screenshot](assets/screenshot.png)
+![VisiCycle Map Screenshot](assets/screenshot_map.png)
+
 ## 🚀 Installation & Start
 
 ### Voraussetzungen
