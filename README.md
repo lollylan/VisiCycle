@@ -21,7 +21,7 @@
 ### 1. Repository klonen
 
 ```bash
-git clone https://github.com/DEIN_USERNAME/VisiCycle.git
+git clone https://github.com/lollylan/VisiCycle.git
 cd VisiCycle
 ```
 
