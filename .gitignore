@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+backend/.env
+backend/db.sqlite3
+backend/patients.db
+node_modules/
+dist/
+.DS_Store
+*.log
