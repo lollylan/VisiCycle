@@ -1,24 +1,37 @@
 :root {
-  --color-primary: #33656E; /* Logo Teal */
-  --color-primary-dark: #264D54; /* Darker Teal */
-  --color-accent: #E17554; /* Logo Orange */
-  --color-bg: #f8fafc; /* Slate 50 */
+  --color-primary: #33656E;
+  /* Logo Teal */
+  --color-primary-dark: #264D54;
+  /* Darker Teal */
+  --color-accent: #E17554;
+  /* Logo Orange */
+  --color-bg: #f8fafc;
+  /* Slate 50 */
   --color-surface: #ffffff;
-  --color-text: #0f172a; /* Slate 900 */
-  --color-text-muted: #64748b; /* Slate 500 */
-  --color-border: #cbd5e1; /* Slate 300 */
+  --color-text: #0f172a;
+  /* Slate 900 */
+  --color-text-muted: #64748b;
+  /* Slate 500 */
+  --color-border: #cbd5e1;
+  /* Slate 300 */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --radius: 0.75rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #0f172a; /* Slate 900 */
-    --color-surface: #1e293b; /* Slate 800 */
-    --color-text: #f8fafc; /* Slate 50 */
-    --color-text-muted: #94a3b8; /* Slate 400 */
-    --color-border: #334155; /* Slate 700 */
+    --color-bg: #0f172a;
+    /* Slate 900 */
+    --color-surface: #1e293b;
+    /* Slate 800 */
+    --color-text: #f8fafc;
+    /* Slate 50 */
+    --color-text-muted: #94a3b8;
+    /* Slate 400 */
+    --color-border: #334155;
+    /* Slate 700 */
   }
 }
 
@@ -36,7 +49,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.025em;
@@ -85,6 +100,11 @@ button {
   background: var(--color-primary-dark);
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-secondary {
   background: transparent;
   border: 1px solid var(--color-border);
@@ -95,7 +115,8 @@ button {
   background: var(--color-bg);
 }
 
-.input {
+.input,
+select {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
@@ -103,9 +124,11 @@ button {
   background: var(--color-bg);
   color: var(--color-text);
   font-size: 1rem;
+  font-family: inherit;
 }
 
-.input:focus {
+.input:focus,
+select:focus {
   outline: 2px solid var(--color-primary);
   border-color: transparent;
 }
@@ -120,14 +143,93 @@ button {
   text-transform: uppercase;
 }
 
-.badge-red { background: #fee2e2; color: #991b1b; }
-.badge-green { background: #dcfce7; color: #166534; }
-.badge-yellow { background: #fef9c3; color: #854d0e; }
+.badge-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.badge-green {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge-yellow {
+  background: #fef9c3;
+  color: #854d0e;
+}
 
 /* Grid Layouts */
-.grid-cols-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-.grid-cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.grid-cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.grid-cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
 
 @media (max-width: 768px) {
-  .grid-cols-2, .grid-cols-3 { grid-template-columns: 1fr; }
+
+  .grid-cols-2,
+  .grid-cols-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Login Screen ─────────────────────────────────────── */
+
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #33656E 0%, #264D54 50%, #1a3e45 100%);
+  padding: 1rem;
+}
+
+.login-card {
+  background: var(--color-surface);
+  border-radius: 1rem;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.login-logo {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.login-error {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Leaflet custom icon fix */
+.custom-div-icon {
+  background: transparent !important;
+  border: none !important;
 }

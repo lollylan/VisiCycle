@@ -5,7 +5,11 @@ backend/venv/
 backend/.env
 backend/db.sqlite3
 backend/patients.db
+backend/build/
+backend/dist/
+backend/VisiCycle.spec
 node_modules/
 dist/
 .DS_Store
 *.log
+VisiCycle_Portable/
