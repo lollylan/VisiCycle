@@ -260,6 +260,13 @@ def update_patient(patient_id: int, patient_update: schemas.PatientUpdate, db: S
     if patient_update.override_behandler_id is not None:
         db_patient.override_behandler_id = patient_update.override_behandler_id if patient_update.override_behandler_id != 0 else None
 
+    # Planned visit date: update only if explicitly included in the request
+    if 'planned_visit_date' in patient_update.model_fields_set:
+        if patient_update.planned_visit_date is None:
+            db_patient.planned_visit_date = None  # Clear the date
+        else:
+            db_patient.planned_visit_date = datetime.combine(patient_update.planned_visit_date, datetime.min.time())
+
     db.commit()
     db.refresh(db_patient)
     crud.decrypt_patient(db_patient)
