@@ -237,6 +237,11 @@ function App() {
   const [praxisAddress, setPraxisAddress] = useState("Praxis");
   const [editingPatient, setEditingPatient] = useState(null);
 
+  // ─── Radius & Transport Mode State ───────────────────
+  const [radiusFuss, setRadiusFuss] = useState(1);
+  const [radiusRad, setRadiusRad] = useState(3);
+  const [transportModes, setTransportModes] = useState({});
+
   // ─── Sort & Filter State ─────────────────────────────
   const [sortBy, setSortBy] = useState('faelligkeit');
   const [sortDir, setSortDir] = useState('asc');
@@ -264,6 +269,11 @@ function App() {
       }
       if (addrRes) {
         setPraxisAddress(addrRes.value);
+      }
+      // Load radius settings from plan response
+      if (dayP?.radius_settings) {
+        setRadiusFuss(dayP.radius_settings.fuss_km);
+        setRadiusRad(dayP.radius_settings.rad_km);
       }
     } catch (err) {
       console.error("Failed to load data", err);
@@ -325,6 +335,24 @@ function App() {
     return list;
   }, [patients, sortBy, sortDir, filterSearch, filterBehandler]);
 
+  // ─── Out-of-radius patients (transport mode filter) ───
+  const outOfRadiusPatients = useMemo(() => {
+    const result = [];
+    const planRoutes = todaysPlan.routes_by_behandler || [];
+    planRoutes.forEach(route => {
+      const mode = transportModes[route.behandler.id] || 'auto';
+      if (mode === 'auto') return;
+      const maxKm = mode === 'fuss' ? radiusFuss : radiusRad;
+      route.patients.forEach(p => {
+        const dist = p.distance_from_praxis_km;
+        if (dist !== null && dist !== undefined && dist > maxKm) {
+          result.push({ patient: p, behandler: route.behandler });
+        }
+      });
+    });
+    return result;
+  }, [todaysPlan, transportModes, radiusFuss, radiusRad]);
+
   // ─── Handlers ──────────────────────────────────────────
 
   const handleAddPatient = async (e) => {
@@ -340,22 +368,50 @@ function App() {
       visit_duration_minutes: parseInt(formData.get('duration')) || 30,
       primary_behandler_id: parseInt(formData.get('behandler')) || null,
     };
-    await fetch(`${API_base}/patients/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    e.target.reset();
-    loadData();
+    try {
+      const res = await fetch(`${API_base}/patients/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Fehler beim Anlegen: ${err.detail || res.statusText}`);
+        return;
+      }
+      const created = await res.json();
+      if (created.geocoding_warning) {
+        alert(`⚠️ Patient angelegt, aber:\n\n${created.geocoding_warning}`);
+      }
+      e.target.reset();
+      loadData();
+    } catch (err) {
+      alert(`Verbindung fehlgeschlagen: ${err.message}`);
+    }
   };
 
   const handleUpdatePatient = async (id, data) => {
-    await fetch(`${API_base}/patients/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    loadData();
+    try {
+      const res = await fetch(`${API_base}/patients/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Fehler beim Speichern: ${err.detail || res.statusText}`);
+        return false;
+      }
+      const updated = await res.json();
+      if (updated.geocoding_warning) {
+        alert(`⚠️ Gespeichert, aber:\n\n${updated.geocoding_warning}`);
+      }
+      loadData();
+      return true;
+    } catch (err) {
+      alert(`Verbindung fehlgeschlagen: ${err.message}`);
+      return false;
+    }
   };
 
   const handleDeletePatient = async (id) => {
@@ -435,13 +491,49 @@ function App() {
       address: fd.get('address'),
       city: fd.get('city')
     };
-    await fetch(`${API_base}/settings/location`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    alert('Standort gespeichert!');
-    loadData();
+    try {
+      const res = await fetch(`${API_base}/settings/location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`⚠️ Geocoding-Fehler:\n\n${err.detail || 'Adresse konnte nicht gefunden werden.'}`);
+        loadData(); // Adresstext wurde trotzdem gespeichert
+        return;
+      }
+      alert('Standort gespeichert!');
+      loadData();
+    } catch (err) {
+      alert(`Verbindung fehlgeschlagen: ${err.message}`);
+    }
+  };
+
+  const handleSaveRadius = async (e) => {
+    e.preventDefault();
+    try {
+      await Promise.all([
+        fetch(`${API_base}/settings/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'radius_fuss', value: String(radiusFuss) })
+        }),
+        fetch(`${API_base}/settings/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'radius_rad', value: String(radiusRad) })
+        })
+      ]);
+      alert('Radius-Einstellungen gespeichert!');
+    } catch (err) {
+      alert(`Verbindung fehlgeschlagen: ${err.message}`);
+    }
+  };
+
+  const getTransportMode = (behandlerId) => transportModes[behandlerId] || 'auto';
+  const setTransportModeFor = (behandlerId, mode) => {
+    setTransportModes(prev => ({ ...prev, [behandlerId]: mode }));
   };
 
   // ─── Behandler Handlers ────────────────────────────────
@@ -634,6 +726,31 @@ function App() {
                           </div>
                         </div>
 
+                        {/* Transport Mode Selector */}
+                        {route.behandler.id && (
+                          <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
+                            {[
+                              { mode: 'auto', label: '🚗 Auto' },
+                              { mode: 'rad',  label: '🚲 Rad' },
+                              { mode: 'fuss', label: '🚶 Fuß' },
+                            ].map(({ mode, label }) => (
+                              <button
+                                key={mode}
+                                onClick={() => setTransportModeFor(route.behandler.id, mode)}
+                                className={`btn ${getTransportMode(route.behandler.id) === mode ? '' : 'btn-secondary'}`}
+                                style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                title={
+                                  mode === 'auto' ? 'Kein Radius-Filter' :
+                                  mode === 'rad'  ? `Max. ${radiusRad} km` :
+                                                   `Max. ${radiusFuss} km`
+                                }
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
                         {/* Workload Bar */}
                         {(() => {
                           const visitTime = route.patients.reduce((sum, p) => sum + p.visit_duration_minutes, 0);
@@ -657,23 +774,67 @@ function App() {
                         })()}
                       </div>
                       <div style={{ display: 'grid', gap: '0.5rem' }}>
-                        {route.patients.map((p, idx) => (
-                          <PatientCard
-                            key={p.id}
-                            patient={p}
-                            idx={idx + 1}
-                            onVisit={() => handleVisitDone(p.id)}
-                            onUnschedule={() => handleUnschedule(p.id)}
-                            isDue={true}
-                            dashboardCompact={true}
-                            behandlerList={behandlerList}
-                            onOverrideBehandler={handleOverrideBehandler}
-                            routeColor={route.behandler.farbe}
-                          />
-                        ))}
+                        {(() => {
+                          const mode = getTransportMode(route.behandler.id);
+                          const maxKm = mode === 'fuss' ? radiusFuss : mode === 'rad' ? radiusRad : Infinity;
+                          const visiblePatients = route.patients.filter(p => {
+                            if (mode === 'auto') return true;
+                            const dist = p.distance_from_praxis_km;
+                            return dist === null || dist === undefined || dist <= maxKm;
+                          });
+                          return visiblePatients.map((p, idx) => (
+                            <PatientCard
+                              key={p.id}
+                              patient={p}
+                              idx={idx + 1}
+                              onVisit={() => handleVisitDone(p.id)}
+                              onUnschedule={() => handleUnschedule(p.id)}
+                              isDue={true}
+                              dashboardCompact={true}
+                              behandlerList={behandlerList}
+                              onOverrideBehandler={handleOverrideBehandler}
+                              routeColor={route.behandler.farbe}
+                            />
+                          ));
+                        })()}
                       </div>
                     </div>
                   ))
+                )}
+
+                {/* Out-of-radius patients */}
+                {outOfRadiusPatients.length > 0 && (
+                  <div>
+                    <div style={{
+                      marginBottom: '0.75rem',
+                      padding: '0.75rem',
+                      borderRadius: '0.5rem',
+                      background: '#fef3c715',
+                      borderLeft: '4px solid #f59e0b'
+                    }}>
+                      <span style={{ fontWeight: 700, color: '#92400e' }}>
+                        ⚠️ Neu zuzuordnen ({outOfRadiusPatients.length})
+                      </span>
+                      <div style={{ fontSize: '0.8rem', color: '#92400e', marginTop: '0.25rem' }}>
+                        Diese Patienten liegen außerhalb des gewählten Fortbewegungsradius.
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gap: '0.5rem' }}>
+                      {outOfRadiusPatients.map(({ patient: p }) => (
+                        <PatientCard
+                          key={`oor-${p.id}`}
+                          patient={p}
+                          onVisit={() => handleVisitDone(p.id)}
+                          onUnschedule={() => handleUnschedule(p.id)}
+                          isDue={true}
+                          dashboardCompact={true}
+                          behandlerList={behandlerList}
+                          onOverrideBehandler={handleOverrideBehandler}
+                          routeColor="#f59e0b"
+                        />
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -919,6 +1080,45 @@ function App() {
                 )}
               </div>
 
+              {/* Radius Settings */}
+              <div style={{ marginTop: '2rem', borderTop: '1px solid var(--color-border)', paddingTop: '2rem' }}>
+                <h3 style={{ marginBottom: '1rem' }}>🚶 Fortbewegungsradius</h3>
+                <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+                  Maximale Entfernung (Luftlinie) von der Praxis für Fuß- und Fahrradbesuche.
+                  Patienten außerhalb dieses Radius werden im Tagesplan in die Spalte "Neu zuzuordnen" verschoben,
+                  wenn der entsprechende Fortbewegungsmodus aktiv ist.
+                </p>
+                <form onSubmit={handleSaveRadius} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', alignItems: 'end' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+                      🚶 Zu Fuß (km)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      className="input"
+                      value={radiusFuss}
+                      onChange={(e) => setRadiusFuss(parseFloat(e.target.value) || 1)}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+                      🚲 Mit Fahrrad (km)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      className="input"
+                      value={radiusRad}
+                      onChange={(e) => setRadiusRad(parseFloat(e.target.value) || 3)}
+                    />
+                  </div>
+                  <button className="btn" type="submit">Speichern</button>
+                </form>
+              </div>
+
               {/* Backup Section */}
               <div style={{ marginTop: '3rem', borderTop: '1px solid var(--color-border)', paddingTop: '2rem' }}>
                 <h3 style={{ marginBottom: '1rem' }}>💾 Datensicherung</h3>
@@ -1043,8 +1243,8 @@ function EditPatientModal({ patient, onClose, onSave, behandlerList = [] }) {
       visit_duration_minutes: parseInt(fd.get('duration')) || 30,
       primary_behandler_id: parseInt(fd.get('behandler')) || 0,
     };
-    await onSave(patient.id, data);
-    onClose();
+    const success = await onSave(patient.id, data);
+    if (success !== false) onClose();
   };
 
   return (
@@ -1158,6 +1358,9 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
             {patient.is_einmalig && (
               <span className="badge badge-yellow" style={{ fontSize: '0.65rem', marginTop: '0.25rem', display: 'inline-block' }}>⚠️ Einmaliger Besuch</span>
             )}
+            {(!patient.latitude || !patient.longitude) && (
+              <span style={{ fontSize: '0.65rem', marginTop: '0.25rem', display: 'inline-block', background: '#fee2e2', color: '#dc2626', borderRadius: '0.25rem', padding: '0.1rem 0.4rem', fontWeight: 600 }}>📍 Keine Koordinaten</span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <span className={`badge ${statusColor}`} style={{ fontSize: '0.75rem' }}>{statusText}</span>
@@ -1230,6 +1433,8 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
         </div>
         <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <span>⏱️ {patient.visit_duration_minutes} min</span>
+          {patient.distance_from_praxis_km != null && <span style={{ color: 'var(--color-text-muted)' }}>📏 {patient.distance_from_praxis_km} km</span>}
+          {(!patient.latitude || !patient.longitude) && <span style={{ background: '#fee2e2', color: '#dc2626', borderRadius: '0.25rem', padding: '0.1rem 0.4rem', fontWeight: 600, fontSize: '0.7rem' }}>📍 Keine Koordinaten</span>}
           {patient.is_einmalig && <span className="badge badge-yellow" style={{ fontSize: '0.7rem' }}>⚠️ Einmaliger Besuch</span>}
           {overrideBehandler && <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}>⚠️ Einmalig: {overrideBehandler.name}</span>}
           {isManuallyPlanned && <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}>📌 Manuell eingeplant</span>}

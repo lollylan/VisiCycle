@@ -55,6 +55,8 @@ class Patient(PatientBase):
     primary_behandler: Optional[Behandler] = None
     override_behandler: Optional[Behandler] = None
     is_einmalig: bool = False
+    geocoding_warning: Optional[str] = None
+    distance_from_praxis_km: Optional[float] = None
 
     class Config:
         from_attributes = True

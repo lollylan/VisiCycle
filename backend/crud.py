@@ -21,6 +21,7 @@ def get_patients(db: Session, skip: int = 0, limit: int = 100):
 def create_patient(db: Session, patient: schemas.PatientCreate):
     # Use provided coords or geocode
     lat, lon = patient.latitude, patient.longitude
+    geocoding_warning = None
 
     if not lat or not lon:
         try:
@@ -28,8 +29,17 @@ def create_patient(db: Session, patient: schemas.PatientCreate):
             if location:
                 lat = location.latitude
                 lon = location.longitude
+            else:
+                geocoding_warning = (
+                    f"Adresse konnte nicht gefunden werden: \"{patient.address}\". "
+                    "Patient wurde ohne Koordinaten gespeichert und erscheint nicht auf der Karte."
+                )
         except Exception as e:
             print(f"Geocoding failed for {patient.address}: {e}")
+            geocoding_warning = (
+                f"Geocoding-Fehler für \"{patient.address}\": {e}. "
+                "Patient wurde ohne Koordinaten gespeichert."
+            )
 
     # Encrypt sensitive fields
     enc = encryption_service
@@ -51,6 +61,8 @@ def create_patient(db: Session, patient: schemas.PatientCreate):
     db.add(db_patient)
     db.commit()
     db.refresh(db_patient)
+    # Attach warning as transient attribute (not persisted in DB)
+    db_patient.geocoding_warning = geocoding_warning
     return db_patient
 
 

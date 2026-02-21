@@ -41,6 +41,27 @@ def get_db():
 PRAXIS_COORDS = (49.79245, 9.93296)
 
 
+def _patient_to_dict(p, distance_km=None):
+    """Serialize a decrypted ORM patient to a plain dict for JSON responses."""
+    return {
+        "id": p.id,
+        "vorname": p.vorname,
+        "nachname": p.nachname,
+        "address": p.address,
+        "latitude": p.latitude,
+        "longitude": p.longitude,
+        "interval_days": p.interval_days,
+        "visit_duration_minutes": p.visit_duration_minutes,
+        "last_visit": p.last_visit.isoformat() if p.last_visit else None,
+        "planned_visit_date": p.planned_visit_date.isoformat() if p.planned_visit_date else None,
+        "is_einmalig": p.is_einmalig,
+        "primary_behandler_id": p.primary_behandler_id,
+        "override_behandler_id": p.override_behandler_id,
+        "snooze_until": p.snooze_until.isoformat() if p.snooze_until else None,
+        "distance_from_praxis_km": distance_km,
+    }
+
+
 def require_unlocked():
     """Dependency: require the encryption service to be unlocked (user logged in)."""
     if not encryption_service.is_unlocked:
@@ -135,9 +156,10 @@ def _encrypt_existing_patients(db: Session):
 
 # ─── PATIENT ENDPOINTS ───────────────────────────────────
 
-@app.post("/patients/", response_model=schemas.Patient)
+@app.post("/patients/")
 def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db), _=Depends(require_unlocked)):
     db_patient = crud.create_patient(db=db, patient=patient)
+    geocoding_warning = getattr(db_patient, 'geocoding_warning', None)
 
     # Auto-schedule one-time patients for today
     if db_patient.is_einmalig:
@@ -146,7 +168,9 @@ def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)
         db.refresh(db_patient)
 
     crud.decrypt_patient(db_patient)
-    return db_patient
+    result = _patient_to_dict(db_patient)
+    result["geocoding_warning"] = geocoding_warning
+    return result
 
 
 @app.get("/patients/", response_model=List[schemas.Patient])
@@ -181,7 +205,7 @@ def register_visit(patient_id: int, db: Session = Depends(get_db), _=Depends(req
     return db_patient
 
 
-@app.put("/patients/{patient_id}", response_model=schemas.Patient)
+@app.put("/patients/{patient_id}")
 def update_patient(patient_id: int, patient_update: schemas.PatientUpdate, db: Session = Depends(get_db), _=Depends(require_unlocked)):
     db_patient = crud.get_patient(db, patient_id=patient_id)
     if not db_patient:
@@ -196,6 +220,7 @@ def update_patient(patient_id: int, patient_update: schemas.PatientUpdate, db: S
         db_patient.nachname = encryption_service.encrypt(patient_update.nachname) if encryption_service.is_unlocked else patient_update.nachname
 
     # Handle Address Change
+    geocoding_warning = None
     if patient_update.address and patient_update.address != current_address:
         db_patient.address = encryption_service.encrypt(patient_update.address) if encryption_service.is_unlocked else patient_update.address
         # Re-geocode if no manual coords provided
@@ -208,8 +233,15 @@ def update_patient(patient_id: int, patient_update: schemas.PatientUpdate, db: S
                 else:
                     db_patient.latitude = None
                     db_patient.longitude = None
+                    geocoding_warning = (
+                        f"Neue Adresse konnte nicht gefunden werden: \"{patient_update.address}\". "
+                        "Koordinaten wurden zurückgesetzt."
+                    )
             except Exception as e:
                 print(f"Geocoding failed for {patient_update.address}: {e}")
+                geocoding_warning = (
+                    f"Geocoding-Fehler für \"{patient_update.address}\": {e}."
+                )
 
     if patient_update.interval_days:
         db_patient.interval_days = patient_update.interval_days
@@ -231,7 +263,9 @@ def update_patient(patient_id: int, patient_update: schemas.PatientUpdate, db: S
     db.commit()
     db.refresh(db_patient)
     crud.decrypt_patient(db_patient)
-    return db_patient
+    result = _patient_to_dict(db_patient)
+    result["geocoding_warning"] = geocoding_warning
+    return result
 
 
 @app.delete("/patients/{patient_id}")
@@ -350,6 +384,12 @@ def get_todays_plan(db: Session = Depends(get_db), _=Depends(require_unlocked)):
         except:
             pass
 
+    # Read radius settings
+    radius_fuss_setting = db.query(models.Settings).filter(models.Settings.key == "radius_fuss").first()
+    radius_rad_setting = db.query(models.Settings).filter(models.Settings.key == "radius_rad").first()
+    radius_fuss_km = float(radius_fuss_setting.value) if radius_fuss_setting else 1.0
+    radius_rad_km = float(radius_rad_setting.value) if radius_rad_setting else 3.0
+
     # Get all Behandler
     all_behandler = crud.get_all_behandler(db)
     behandler_map = {b.id: b for b in all_behandler}
@@ -387,9 +427,17 @@ def get_todays_plan(db: Session = Depends(get_db), _=Depends(require_unlocked)):
             dist = routing.haversine_distance(current_pos[0], current_pos[1], current_praxis_coords[0], current_praxis_coords[1])
             total_travel_time += routing.calculate_travel_time_minutes(dist)
 
-        # Decrypt patient data for response
+        # Decrypt and convert patients to serializable dicts with distance
+        patient_dicts = []
         for p in optimized:
             crud.decrypt_patient(p)
+            dist = round(
+                routing.haversine_distance(
+                    current_praxis_coords[0], current_praxis_coords[1],
+                    p.latitude, p.longitude
+                ), 2
+            ) if p.latitude and p.longitude else None
+            patient_dicts.append(_patient_to_dict(p, distance_km=dist))
 
         routes_by_behandler.append({
             "behandler": {
@@ -398,10 +446,10 @@ def get_todays_plan(db: Session = Depends(get_db), _=Depends(require_unlocked)):
                 "rolle": b.rolle,
                 "farbe": b.farbe,
             },
-            "patients": optimized,
+            "patients": patient_dicts,
             "stats": {
                 "total_travel_time_minutes": total_travel_time,
-                "patient_count": len(optimized),
+                "patient_count": len(patient_dicts),
             }
         })
 
@@ -420,8 +468,16 @@ def get_todays_plan(db: Session = Depends(get_db), _=Depends(require_unlocked)):
             dist = routing.haversine_distance(current_pos[0], current_pos[1], current_praxis_coords[0], current_praxis_coords[1])
             total_travel_time += routing.calculate_travel_time_minutes(dist)
 
+        patient_dicts = []
         for p in optimized:
             crud.decrypt_patient(p)
+            dist = round(
+                routing.haversine_distance(
+                    current_praxis_coords[0], current_praxis_coords[1],
+                    p.latitude, p.longitude
+                ), 2
+            ) if p.latitude and p.longitude else None
+            patient_dicts.append(_patient_to_dict(p, distance_km=dist))
 
         routes_by_behandler.append({
             "behandler": {
@@ -430,10 +486,10 @@ def get_todays_plan(db: Session = Depends(get_db), _=Depends(require_unlocked)):
                 "rolle": "",
                 "farbe": "#94a3b8",
             },
-            "patients": optimized,
+            "patients": patient_dicts,
             "stats": {
                 "total_travel_time_minutes": total_travel_time,
-                "patient_count": len(optimized),
+                "patient_count": len(patient_dicts),
             }
         })
 
@@ -450,6 +506,10 @@ def get_todays_plan(db: Session = Depends(get_db), _=Depends(require_unlocked)):
         "stats": {
             "total_travel_time_minutes": total_all_travel,
             "patient_count": len(all_due_decrypted),
+        },
+        "radius_settings": {
+            "fuss_km": radius_fuss_km,
+            "rad_km": radius_rad_km,
         }
     }
 
@@ -520,7 +580,7 @@ def update_location(loc: schemas.LocationUpdate, db: Session = Depends(get_db)):
     _save_setting("praxis_address", f"{loc.address} {loc.city}")
 
     coords = None
-    # Try geocoding
+    geocoding_error = None
     try:
         full_address = f"{loc.address}, {loc.city}, Germany"
         location = geolocator.geocode(full_address)
@@ -528,10 +588,21 @@ def update_location(loc: schemas.LocationUpdate, db: Session = Depends(get_db)):
             coords = (location.latitude, location.longitude)
             _save_setting("praxis_lat", str(location.latitude))
             _save_setting("praxis_lon", str(location.longitude))
+        else:
+            geocoding_error = (
+                f"Adresse \"{loc.address}, {loc.city}\" konnte nicht gefunden werden. "
+                "Bitte prüfen Sie die Schreibweise."
+            )
     except Exception as e:
         print(f"Geocoding failed: {e}")
+        geocoding_error = f"Geocoding-Fehler: {e}"
 
+    # Always commit address text, even if geocoding failed
     db.commit()
+
+    if geocoding_error:
+        raise HTTPException(status_code=400, detail=geocoding_error)
+
     return {"message": "Standort gespeichert", "coords": coords}
 
 
