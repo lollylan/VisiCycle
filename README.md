@@ -7,7 +7,7 @@
 *   **100% Datenschutz:** Alle Patientendaten bleiben lokal auf Ihrem Gerät – keine Cloud, kein Tracking.
 *   **Verschlüsselung:** Patientendaten werden mit AES-256 verschlüsselt in der lokalen Datenbank gespeichert.
 *   **Intelligentes Routing:** Automatische Berechnung der optimalen Route (Nearest Neighbor TSP).
-*   **Flexible Zeitplanung:** Individuelle Besuchsintervalle, manuelle Termine und Einmal-Besuche.
+*   **Flexible Zeitplanung:** Individuelle Besuchsintervalle, frei wählbares Startdatum für den ersten Besuch und Einmal-Besuche.
 *   **Behandler-Management:** Mehrere Behandler mit eigener Farbcodierung und täglichem Zeitbudget.
 *   **Snooze-Funktion:** Patienten flexibel verschieben.
 *   **Backup & Restore:** Datenbank mit einem Klick sichern und wiederherstellen.
@@ -62,6 +62,26 @@ http://<Ihre-IP-Adresse>:8555
 ```
 
 Die IP-Adresse finden Sie z.B. über `ipconfig` in der Eingabeaufforderung.
+
+---
+
+## 🗓️ Patientenverwaltung
+
+### Neuen Patienten anlegen
+
+Beim Anlegen eines neuen Patienten stehen folgende Felder zur Verfügung:
+
+| Feld | Beschreibung |
+|---|---|
+| **Nachname / Vorname** | Name des Patienten (verschlüsselt gespeichert) |
+| **Adresse** | Wird automatisch geocodiert (OpenStreetMap) |
+| **Erster geplanter Besuch** | *(optional)* Datum des ersten Besuchs – das Intervall läuft ab diesem Datum |
+| **Intervall (Tage)** | Wie oft der Patient besucht werden soll (entfällt bei Einmal-Besuchen) |
+| **Dauer (Min)** | Geschätzte Besuchsdauer |
+| **Einmaliger Besuch** | Patient wird nach Erledigung automatisch gelöscht; kein Intervall nötig |
+| **Primärer Behandler** | Zuständiger Behandler (kann pro Besuch überschrieben werden) |
+
+**Erster geplanter Besuch:** Wird ein Datum angegeben, erscheint der Patient automatisch am richtigen Tag im Tagesplan – ohne dass manuell ein Termin gesetzt werden muss. Bei regulären Patienten wird `last_visit` entsprechend zurückdatiert, sodass `last_visit + Intervall = erster Besuch`. Bei Einmal-Patienten wird das Datum direkt als geplanter Termin eingetragen.
 
 ---
 

@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 import models, schemas
 from geopy.geocoders import Nominatim
-from datetime import datetime
+from datetime import datetime, timedelta
 from services.encryption import encryption_service
 
 # Initialize geocoder with a unique user agent to respect OSM policy
@@ -47,6 +47,22 @@ def create_patient(db: Session, patient: schemas.PatientCreate):
     encrypted_nachname = enc.encrypt(patient.nachname) if enc.is_unlocked else patient.nachname
     encrypted_address = enc.encrypt(patient.address) if enc.is_unlocked else patient.address
 
+    # Determine last_visit and planned_visit_date from first_visit_date
+    if patient.first_visit_date:
+        first_visit_dt = datetime.combine(patient.first_visit_date, datetime.min.time())
+        if patient.is_einmalig:
+            # One-time patients: set planned_visit_date so they appear on that day's plan
+            last_visit_val = datetime.utcnow()
+            planned_visit_val = first_visit_dt
+        else:
+            # Regular patients: backdate last_visit so next due = first_visit_date
+            days = patient.interval_days if patient.interval_days > 0 else 0
+            last_visit_val = first_visit_dt - timedelta(days=days)
+            planned_visit_val = None
+    else:
+        last_visit_val = datetime.utcnow()
+        planned_visit_val = None
+
     db_patient = models.Patient(
         vorname=encrypted_vorname,
         nachname=encrypted_nachname,
@@ -55,7 +71,9 @@ def create_patient(db: Session, patient: schemas.PatientCreate):
         visit_duration_minutes=patient.visit_duration_minutes,
         latitude=lat,
         longitude=lon,
-        last_visit=datetime.utcnow(),
+        last_visit=last_visit_val,
+        planned_visit_date=planned_visit_val,
+        is_einmalig=patient.is_einmalig,
         primary_behandler_id=patient.primary_behandler_id,
     )
     db.add(db_patient)
