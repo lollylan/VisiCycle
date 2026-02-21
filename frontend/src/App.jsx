@@ -1249,21 +1249,31 @@ function App() {
 // ─── EDIT PATIENT MODAL ──────────────────────────────────
 
 function EditPatientModal({ patient, onClose, onSave, behandlerList = [] }) {
+  const [isEinmaligEdit, setIsEinmaligEdit] = useState(patient.is_einmalig);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const isEinmalig = fd.get('is_einmalig') === 'on';
+    const plannedRaw = fd.get('planned_visit_date');
     const data = {
       vorname: fd.get('vorname'),
       nachname: fd.get('nachname'),
       address: fd.get('address'),
-      is_einmalig: fd.get('is_einmalig') === 'on',
-      interval_days: fd.get('is_einmalig') === 'on' ? 0 : parseInt(fd.get('interval')),
+      is_einmalig: isEinmalig,
+      interval_days: isEinmalig ? 0 : parseInt(fd.get('interval')),
       visit_duration_minutes: parseInt(fd.get('duration')) || 30,
       primary_behandler_id: parseInt(fd.get('behandler')) || 0,
+      planned_visit_date: plannedRaw || null,
     };
     const success = await onSave(patient.id, data);
     if (success !== false) onClose();
   };
+
+  // Extract date part (YYYY-MM-DD) from ISO datetime string for the date input
+  const plannedDateValue = patient.planned_visit_date
+    ? patient.planned_visit_date.substring(0, 10)
+    : '';
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
@@ -1285,18 +1295,38 @@ function EditPatientModal({ patient, onClose, onSave, behandlerList = [] }) {
             <input name="address" className="input" defaultValue={patient.address} placeholder="Adresse" required />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label className="label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Intervall (Tage)</label>
-              <input name="interval" type="number" className="input" defaultValue={patient.interval_days} />
-            </div>
+            {!isEinmaligEdit && (
+              <div>
+                <label className="label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Intervall (Tage)</label>
+                <input name="interval" type="number" className="input" defaultValue={patient.interval_days} min="1" />
+              </div>
+            )}
             <div>
               <label className="label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Dauer (Min)</label>
               <input name="duration" type="number" className="input" defaultValue={patient.visit_duration_minutes} />
             </div>
           </div>
+          <div>
+            <label className="label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+              Nächster geplanter Besuch
+              <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: '0.4rem' }}>(optional – überschreibt das Intervall einmalig)</span>
+            </label>
+            <input
+              name="planned_visit_date"
+              type="date"
+              className="input"
+              defaultValue={plannedDateValue}
+            />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <input name="is_einmalig" type="checkbox" defaultChecked={patient.is_einmalig} style={{ marginRight: '0.5rem', width: '16px', height: '16px' }} />
+              <input
+                name="is_einmalig"
+                type="checkbox"
+                checked={isEinmaligEdit}
+                onChange={(e) => setIsEinmaligEdit(e.target.checked)}
+                style={{ marginRight: '0.5rem', width: '16px', height: '16px' }}
+              />
               Einmaliger Besuch (wird nach Erledigung gelöscht)
             </label>
           </div>

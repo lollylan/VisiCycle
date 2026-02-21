@@ -74,6 +74,7 @@ class PatientUpdate(BaseModel):
     primary_behandler_id: Optional[int] = None
     override_behandler_id: Optional[int] = None
     is_einmalig: Optional[bool] = None
+    planned_visit_date: Optional[date] = None  # Explicit next visit date (overrides interval)
 
 
 # ─── Settings ─────────────────────────────────────────────
