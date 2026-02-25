@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+networkx
+osmnx
+geopy
+requests
+cryptography
