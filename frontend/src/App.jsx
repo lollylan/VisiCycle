@@ -233,6 +233,9 @@ function App() {
   const [view, setView] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [dailyTimeOverrides, setDailyTimeOverrides] = useState({});
+  const [dailyVehicles, setDailyVehicles] = useState({});
+  const [radiusWalk, setRadiusWalk] = useState(1);
+  const [radiusBike, setRadiusBike] = useState(5);
   const [praxisCoords, setPraxisCoords] = useState(DEFAULT_COORDS);
   const [praxisAddress, setPraxisAddress] = useState("Praxis");
   const [editingPatient, setEditingPatient] = useState(null);
@@ -246,13 +249,16 @@ function App() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [allP, dayP, behandler, latRes, lonRes, addrRes] = await Promise.all([
+      const q = encodeURIComponent(JSON.stringify(dailyVehicles));
+      const [allP, dayP, behandler, latRes, lonRes, addrRes, rwRes, rbRes] = await Promise.all([
         fetch(`${API_base}/patients/`).then(res => res.ok ? res.json() : []),
-        fetch(`${API_base}/planner/today`).then(res => res.ok ? res.json() : { patients: [], routes_by_behandler: [], stats: { total_travel_time_minutes: 0, patient_count: 0 } }),
+        fetch(`${API_base}/planner/today?vehicles=${q}`).then(res => res.ok ? res.json() : { patients: [], routes_by_behandler: [], stats: { total_travel_time_minutes: 0, patient_count: 0 } }),
         fetch(`${API_base}/behandler/`).then(res => res.ok ? res.json() : []),
         fetch(`${API_base}/settings/praxis_lat`).then(r => r.ok ? r.json() : null),
         fetch(`${API_base}/settings/praxis_lon`).then(r => r.ok ? r.json() : null),
-        fetch(`${API_base}/settings/praxis_address`).then(r => r.ok ? r.json() : null)
+        fetch(`${API_base}/settings/praxis_address`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_base}/settings/radius_walk`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_base}/settings/radius_bike`).then(r => r.ok ? r.json() : null)
       ]);
 
       setPatients(allP);
@@ -265,12 +271,18 @@ function App() {
       if (addrRes) {
         setPraxisAddress(addrRes.value);
       }
+      if (rwRes && rwRes.value) {
+        setRadiusWalk(parseFloat(rwRes.value));
+      }
+      if (rbRes && rbRes.value) {
+        setRadiusBike(parseFloat(rbRes.value));
+      }
     } catch (err) {
       console.error("Failed to load data", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dailyVehicles]);
 
   useEffect(() => {
     if (loggedIn) loadData();
@@ -441,6 +453,25 @@ function App() {
       body: JSON.stringify(data)
     });
     alert('Standort gespeichert!');
+    loadData();
+  };
+
+  const handleRadiusUpdate = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    await fetch(`${API_base}/settings/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'radius_walk', value: fd.get('radius_walk') })
+    });
+    await fetch(`${API_base}/settings/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'radius_bike', value: fd.get('radius_bike') })
+    });
+    setRadiusWalk(parseFloat(fd.get('radius_walk')));
+    setRadiusBike(parseFloat(fd.get('radius_bike')));
+    alert('Radien gespeichert!');
     loadData();
   };
 
@@ -633,6 +664,22 @@ function App() {
                             <span style={{ color: 'var(--color-text-muted)' }}>Min</span>
                           </div>
                         </div>
+
+                        {route.behandler.id && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Verkehrsmittel:</span>
+                            <select
+                              value={dailyVehicles[route.behandler.id] || "Auto"}
+                              onChange={(e) => setDailyVehicles(prev => ({ ...prev, [route.behandler.id]: e.target.value }))}
+                              className="input"
+                              style={{ padding: '0.15rem 0.3rem', fontSize: '0.8rem', height: 'auto', minHeight: '0', display: 'inline-block', width: 'auto' }}
+                            >
+                              <option value="Auto">🚗 Auto</option>
+                              <option value="Fahrrad">🚴‍♂️ Rad (&#60; {radiusBike}km)</option>
+                              <option value="Zu Fuß">🚶 Zu Fuß (&#60; {radiusWalk}km)</option>
+                            </select>
+                          </div>
+                        )}
 
                         {/* Workload Bar */}
                         {(() => {
@@ -917,6 +964,25 @@ function App() {
                     Aktueller Standort: <b>{praxisAddress}</b> · Koordinaten: {praxisCoords[0].toFixed(5)}, {praxisCoords[1].toFixed(5)}
                   </div>
                 )}
+              </div>
+
+              {/* Radius Section */}
+              <div style={{ marginTop: '2rem', borderTop: '1px solid var(--color-border)', paddingTop: '2rem' }}>
+                <h3 style={{ marginBottom: '1rem' }}>🚴‍♂️ Hausbesuchs-Radien</h3>
+                <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+                  Legen Sie hier fest, bis zu welcher Entfernung (Luftlinie) ein Hausbesuch noch zu Fuß oder mit dem Fahrrad absolviert wird. Patienten in größerer Entfernung werden als "Nicht zugewiesen" aussortiert, wenn das entsprechende Verkehrsmittel im Tagesplan gewählt wird.
+                </p>
+                <form onSubmit={handleRadiusUpdate} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.9rem' }}>Zu Fuß (km):</label>
+                    <input name="radius_walk" type="number" step="0.1" defaultValue={radiusWalk} className="input" required style={{ width: '80px', padding: '0.25rem' }} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                    <label style={{ fontSize: '0.9rem' }}>Fahrrad (km):</label>
+                    <input name="radius_bike" type="number" step="0.1" defaultValue={radiusBike} className="input" required style={{ width: '80px', padding: '0.25rem' }} />
+                  </div>
+                  <button className="btn" style={{ marginLeft: '1rem' }}>Radien Speichern</button>
+                </form>
               </div>
 
               {/* Backup Section */}

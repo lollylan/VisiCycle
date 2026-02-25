@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 import threading
 import time
 import os
+import json
 
 import models, schemas, crud
 from database import SessionLocal, engine
@@ -355,7 +356,7 @@ def override_behandler(patient_id: int, data: schemas.OverrideBehandler, db: Ses
 # ─── PLANNER ENDPOINT ─────────────────────────────────────
 
 @app.get("/planner/today")
-def get_todays_plan(db: Session = Depends(get_db), _=Depends(require_unlocked)):
+def get_todays_plan(vehicles: str = None, db: Session = Depends(get_db), _=Depends(require_unlocked)):
     """
     Returns patients due today, grouped by Behandler, with optimized routes per Behandler.
     """
@@ -403,12 +404,41 @@ def get_todays_plan(db: Session = Depends(get_db), _=Depends(require_unlocked)):
     all_behandler = crud.get_all_behandler(db)
     behandler_map = {b.id: b for b in all_behandler}
 
+    # Build group
+    vehicles_dict = {}
+    if vehicles:
+        try:
+            vehicles_dict = json.loads(vehicles)
+        except:
+            pass
+
+    radius_walk = 1.0
+    radius_bike = 5.0
+    try:
+        s_walk = db.query(models.Settings).filter(models.Settings.key == "radius_walk").first()
+        if s_walk: radius_walk = float(s_walk.value)
+        s_bike = db.query(models.Settings).filter(models.Settings.key == "radius_bike").first()
+        if s_bike: radius_bike = float(s_bike.value)
+    except:
+        pass
+
     # Group patients by their effective Behandler (override > primary)
     grouped = {}  # behandler_id -> [patients]
     unassigned = []  # patients without a Behandler
 
     for p in due_patients:
         effective_id = p.override_behandler_id or p.primary_behandler_id
+        
+        # Checking radius if a vehicle other than Auto is chosen
+        if effective_id and effective_id in behandler_map and p.latitude and p.longitude:
+            vehicle = vehicles_dict.get(str(effective_id), "Auto")
+            dist = routing.haversine_distance(current_praxis_coords[0], current_praxis_coords[1], p.latitude, p.longitude)
+            # Distance is returned in kilometers by routing.haversine_distance
+            if vehicle == "Zu Fuß" and dist > radius_walk:
+                effective_id = None
+            elif vehicle == "Fahrrad" and dist > radius_bike:
+                effective_id = None
+
         if effective_id and effective_id in behandler_map:
             if effective_id not in grouped:
                 grouped[effective_id] = []
