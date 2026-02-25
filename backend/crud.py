@@ -46,6 +46,7 @@ def create_patient(db: Session, patient: schemas.PatientCreate):
         latitude=lat,
         longitude=lon,
         last_visit=datetime.utcnow(),
+        planned_visit_date=patient.planned_visit_date,
         primary_behandler_id=patient.primary_behandler_id,
     )
     db.add(db_patient)

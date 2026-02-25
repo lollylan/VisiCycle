@@ -278,6 +278,15 @@ def update_patient(patient_id: int, patient_update: schemas.PatientUpdate, db: S
     if patient_update.override_behandler_id is not None:
         db_patient.override_behandler_id = patient_update.override_behandler_id if patient_update.override_behandler_id != 0 else None
 
+    # Handle explicitly provided planned_visit_date or unset
+    if hasattr(patient_update, 'model_dump'):
+        update_data = patient_update.model_dump(exclude_unset=True)
+    else:
+        update_data = patient_update.dict(exclude_unset=True)
+
+    if 'planned_visit_date' in update_data:
+        db_patient.planned_visit_date = patient_update.planned_visit_date
+
     db.commit()
     db.refresh(db_patient)
     crud.decrypt_patient(db_patient)

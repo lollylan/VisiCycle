@@ -43,6 +43,7 @@ class PatientBase(BaseModel):
 class PatientCreate(PatientBase):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    planned_visit_date: Optional[datetime] = None
 
 
 class Patient(PatientBase):
@@ -71,7 +72,7 @@ class PatientUpdate(BaseModel):
     primary_behandler_id: Optional[int] = None
     override_behandler_id: Optional[int] = None
     is_einmalig: Optional[bool] = None
-
+    planned_visit_date: Optional[datetime] = None
 
 # ─── Settings ─────────────────────────────────────────────
 class SettingsBase(BaseModel):

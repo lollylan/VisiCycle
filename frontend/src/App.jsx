@@ -321,8 +321,9 @@ function App() {
         case 'vorname':
           return dir * (a.vorname || '').localeCompare(b.vorname || '', 'de');
         case 'faelligkeit': {
-          const nextA = new Date(a.last_visit).getTime() + a.interval_days * 86400000;
-          const nextB = new Date(b.last_visit).getTime() + b.interval_days * 86400000;
+          const getNext = (p) => p.planned_visit_date ? new Date(p.planned_visit_date).getTime() : new Date(p.last_visit).getTime() + p.interval_days * 86400000;
+          const nextA = getNext(a);
+          const nextB = getNext(b);
           return dir * (nextA - nextB);
         }
         case 'letzte_visite':
@@ -351,6 +352,7 @@ function App() {
       interval_days: formData.get('is_einmalig') === 'on' ? 0 : (parseInt(formData.get('interval')) || 7),
       visit_duration_minutes: parseInt(formData.get('duration')) || 30,
       primary_behandler_id: parseInt(formData.get('behandler')) || null,
+      planned_visit_date: formData.get('first_visit') || null,
     };
     await fetch(`${API_base}/patients/`, {
       method: 'POST',
@@ -832,6 +834,10 @@ function App() {
                   </label>
                 </div>
                 <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Erster Besuch (opt.)</label>
+                  <input name="first_visit" type="date" className="input" />
+                </div>
+                <div>
                   <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Primärer Behandler</label>
                   <select name="behandler" className="input">
                     <option value="">— Kein Behandler —</option>
@@ -1108,6 +1114,7 @@ function EditPatientModal({ patient, onClose, onSave, behandlerList = [] }) {
       interval_days: fd.get('is_einmalig') === 'on' ? 0 : parseInt(fd.get('interval')),
       visit_duration_minutes: parseInt(fd.get('duration')) || 30,
       primary_behandler_id: parseInt(fd.get('behandler')) || 0,
+      planned_visit_date: fd.get('first_visit') || null,
     };
     await onSave(patient.id, data);
     onClose();
@@ -1142,6 +1149,10 @@ function EditPatientModal({ patient, onClose, onSave, behandlerList = [] }) {
               <input name="duration" type="number" className="input" defaultValue={patient.visit_duration_minutes} />
             </div>
           </div>
+          <div>
+            <label className="label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Geplanter Besuch (Datum)</label>
+            <input name="first_visit" type="date" className="input" defaultValue={patient.planned_visit_date ? patient.planned_visit_date.slice(0, 10) : ''} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
               <input name="is_einmalig" type="checkbox" defaultChecked={patient.is_einmalig} style={{ marginRight: '0.5rem', width: '16px', height: '16px' }} />
@@ -1174,8 +1185,18 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
   const [showOverride, setShowOverride] = useState(false);
 
   const lastVisit = new Date(patient.last_visit).toLocaleDateString();
-  const nextVisit = new Date(new Date(patient.last_visit).getTime() + patient.interval_days * 86400000);
-  const daysUntil = Math.ceil((nextVisit - new Date()) / (1000 * 60 * 60 * 24));
+  let nextVisit;
+  if (patient.planned_visit_date) {
+    nextVisit = new Date(patient.planned_visit_date);
+  } else {
+    nextVisit = new Date(new Date(patient.last_visit).getTime() + patient.interval_days * 86400000);
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nv = new Date(nextVisit);
+  nv.setHours(0, 0, 0, 0);
+  const daysUntil = Math.round((nv - today) / (1000 * 60 * 60 * 24));
 
   let statusColor = 'badge-green';
   let statusText = 'OK';
@@ -1298,7 +1319,7 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
           <span>⏱️ {patient.visit_duration_minutes} min</span>
           {patient.is_einmalig && <span className="badge badge-yellow" style={{ fontSize: '0.7rem' }}>⚠️ Einmaliger Besuch</span>}
           {overrideBehandler && <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}>⚠️ Einmalig: {overrideBehandler.name}</span>}
-          {isManuallyPlanned && <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}>📌 Manuell eingeplant</span>}
+          {patient.planned_visit_date !== null && <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}>📌 Terminiert: {new Date(patient.planned_visit_date).toLocaleDateString()}</span>}
         </div>
 
         {/* Override Dropdown in Dashboard */}
@@ -1356,7 +1377,7 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
           )}
         </div>
       ) : (
-        !isManuallyPlanned && (
+        patient.planned_visit_date === null && (
           <div style={{ marginTop: '1rem', borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
             <button onClick={onSchedule} className="btn btn-secondary" style={{ width: '100%', fontSize: '0.875rem' }}>
               📅 Heute einplanen
