@@ -1,5 +1,8 @@
 # VisiCycle - Intelligenter Hausbesuchs-Planer 🚴‍♂️🏥
 
+[![GitHub Release](https://img.shields.io/github/v/release/lollylan/VisiCycle?style=for-the-badge&label=Download&color=2ea44f)](https://github.com/lollylan/VisiCycle/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+
 **VisiCycle** ist eine moderne, datenschutzfreundliche Anwendung für medizinische Hausbesuche. Sie hilft Ärzten und Pflegepersonal, ihre täglichen Routen effizient zu planen, Patienten zu verwalten und Reisezeiten zu minimieren.
 
 ## ✨ Highlights
@@ -27,9 +30,9 @@
 
 ### 1. Herunterladen
 
-Laden Sie die Datei **`VisiCycle_Portable.zip`** aus diesem Repository herunter.
+Laden Sie **`VisiCycle_Portable.zip`** von der [**Releases-Seite**](https://github.com/lollylan/VisiCycle/releases/latest) herunter.
 
-> 💡 **Direkter Download:** Klicken Sie auf die Datei `VisiCycle_Portable.zip` und dann auf „Download" (oder „Raw").
+> 💡 **Direkter Download:** Gehen Sie zu [Releases](https://github.com/lollylan/VisiCycle/releases/latest) und klicken Sie auf **`VisiCycle_Portable.zip`** unter „Assets".
 
 ### 2. Entpacken
 
