@@ -354,21 +354,33 @@ function App() {
       primary_behandler_id: parseInt(formData.get('behandler')) || null,
       planned_visit_date: formData.get('first_visit') || null,
     };
-    await fetch(`${API_base}/patients/`, {
+    const res = await fetch(`${API_base}/patients/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
+    if (res.ok) {
+      const saved = await res.json();
+      if (!saved.latitude && !saved.longitude) {
+        alert('Hinweis: Für diese Adresse konnten keine Geokoordinaten ermittelt werden. Der Patient wird nicht auf der Karte angezeigt.\n\nBitte prüfen Sie die Adresse oder setzen Sie den Praxisstandort in den Einstellungen (Stadt/PLZ).');
+      }
+    }
     e.target.reset();
     loadData();
   };
 
   const handleUpdatePatient = async (id, data) => {
-    await fetch(`${API_base}/patients/${id}`, {
+    const res = await fetch(`${API_base}/patients/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
+    if (res.ok) {
+      const saved = await res.json();
+      if (!saved.latitude && !saved.longitude) {
+        alert('Hinweis: Für diese Adresse konnten keine Geokoordinaten ermittelt werden. Der Patient wird nicht auf der Karte angezeigt.\n\nBitte prüfen Sie die Adresse oder setzen Sie den Praxisstandort in den Einstellungen (Stadt/PLZ).');
+      }
+    }
     loadData();
   };
 
@@ -1232,6 +1244,9 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
           <div>
             <div style={{ fontWeight: 'bold' }}>{name}</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{patient.address}</div>
+            {!patient.latitude && !patient.longitude && (
+              <span className="badge badge-yellow" style={{ fontSize: '0.65rem', marginTop: '0.25rem', display: 'inline-block' }}>⚠️ Keine Geokoordinaten – Patient wird nicht auf der Karte angezeigt</span>
+            )}
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
               Letzte Visite: {lastVisit} · {patient.is_einmalig ? <b>Einmalig</b> : `Intervall: ${patient.interval_days}d`} · Dauer: {patient.visit_duration_minutes}min
             </div>
@@ -1308,6 +1323,9 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{idx}. {name}</div>
             <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{patient.address}</div>
+            {!patient.latitude && !patient.longitude && (
+              <span className="badge badge-yellow" style={{ fontSize: '0.65rem', marginTop: '0.15rem', display: 'inline-block' }}>⚠️ Keine Geokoordinaten</span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button onClick={onVisit} className="btn" style={{ padding: '0.25rem 0.75rem', fontSize: '0.9rem' }}>✅ Erledigt</button>
@@ -1356,6 +1374,9 @@ function PatientCard({ patient, idx, onVisit, onSchedule, onUnschedule, onEdit, 
         <div>
           <h3 style={{ fontSize: '1.25rem' }}>{idx ? `${idx}. ` : ''}{name}</h3>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{patient.address}</p>
+          {!patient.latitude && !patient.longitude && (
+            <span className="badge badge-yellow" style={{ fontSize: '0.7rem', marginTop: '0.25rem', display: 'inline-block' }}>⚠️ Keine Geokoordinaten – Patient wird nicht auf der Karte angezeigt</span>
+          )}
         </div>
         <span className={`badge ${statusColor}`}>{statusText}</span>
       </div>

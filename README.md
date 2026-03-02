@@ -12,6 +12,8 @@
 *   **Intelligentes Routing:** Automatische Berechnung der optimalen Route (Nearest Neighbor TSP).
 *   **Flexible Zeitplanung:** Individuelle Besuchsintervalle, manuelle Termine und Einmal-Besuche.
 *   **Behandler-Management:** Mehrere Behandler mit eigener Farbcodierung und täglichem Zeitbudget.
+*   **Standortunabhängig:** Geocoding nutzt den konfigurierten Praxisstandort – funktioniert in jeder Stadt, nicht nur Würzburg.
+*   **Geocoding-Feedback:** Visueller Hinweis wenn Adressen nicht gefunden wurden, inkl. Warnung beim Speichern.
 *   **Snooze-Funktion:** Patienten flexibel verschieben.
 *   **Backup & Restore:** Datenbank (.sqlite3) oder verschlüsselte Backups (.enc, .sqlite3.enc) mit einem Klick sichern und wiederherstellen.
 *   **LAN-Zugriff:** Andere Computer im Netzwerk können die App mitnutzen.

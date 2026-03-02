@@ -8,6 +8,14 @@ from services.encryption import encryption_service
 geolocator = Nominatim(user_agent="medical_visit_planner_offline_v1")
 
 
+def _get_geocode_suffix(db: Session) -> str:
+    """Build geocoding suffix from praxis_city setting, fallback to 'Germany'."""
+    city_setting = db.query(models.Settings).filter(models.Settings.key == "praxis_city").first()
+    if city_setting and city_setting.value:
+        return f", {city_setting.value}, Germany"
+    return ", Germany"
+
+
 # ─── Patient CRUD ─────────────────────────────────────────
 
 def get_patient(db: Session, patient_id: int):
@@ -24,7 +32,8 @@ def create_patient(db: Session, patient: schemas.PatientCreate):
 
     if not lat or not lon:
         try:
-            location = geolocator.geocode(patient.address + ", Würzburg, Germany")
+            suffix = _get_geocode_suffix(db)
+            location = geolocator.geocode(patient.address + suffix)
             if location:
                 lat = location.latitude
                 lon = location.longitude

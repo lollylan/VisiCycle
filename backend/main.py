@@ -251,7 +251,8 @@ def update_patient(patient_id: int, patient_update: schemas.PatientUpdate, db: S
         # Re-geocode if no manual coords provided
         if not patient_update.latitude and not patient_update.longitude:
             try:
-                location = crud.geolocator.geocode(patient_update.address + ", Würzburg, Germany")
+                suffix = crud._get_geocode_suffix(db)
+                location = crud.geolocator.geocode(patient_update.address + suffix)
                 if location:
                     db_patient.latitude = location.latitude
                     db_patient.longitude = location.longitude
@@ -606,6 +607,7 @@ def update_location(loc: schemas.LocationUpdate, db: Session = Depends(get_db)):
             db.add(models.Settings(key=key, value=value))
 
     _save_setting("praxis_address", f"{loc.address} {loc.city}")
+    _save_setting("praxis_city", loc.city)
 
     coords = None
     # Try geocoding
